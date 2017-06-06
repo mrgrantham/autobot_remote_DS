@@ -186,7 +186,6 @@ int fd; // UDP socket value
 int16_t portnum = 55056;
 struct sockaddr_in myaddr;
 struct sockaddr_in servaddr;    /* server address */
-char *my_message = "this is a test message";
 
 int16_t touchpx = 0;
 int16_t touchpy = 0;
@@ -194,17 +193,18 @@ int16_t touchpy = 0;
 int16_t matrix_x = 0;
 int16_t matrix_y = 0;
 
-void keyInterruptRoutine() {
-	iprintf("interrupted\n");
+static char packet[32];
 
+void sendStatus(const char *message) {
+	snprintf(packet,sizeof(packet),message);
+	consoleSelect(&topScreen);
+	iprintf("%s\n",packet);
 	/* send a message to the server */
-	if (sendto(fd, my_message, strlen(my_message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(fd, packet, strlen(packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 		consoleSelect(&topScreen);
 		iprintf("sendto failed\n");
 		consoleSelect(&bottomScreen);
-		return 0;
 	}
-	// irqClear(IRQ_KEYS);
 }
 
 
@@ -249,23 +249,24 @@ int main(void) {
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(portnum);
 	// servaddr.sin_addr.s_addr = htonl(0xC0A800FA);
-	inet_aton("192.168.0.250",&servaddr.sin_addr);
+	inet_aton("192.168.0.101",&servaddr.sin_addr);
 
 
 	consoleSelect(&bottomScreen);
 
-	static char packet[32];
 
 // Run Loop
 
 	while(1) {
 		scanKeys();
 		touchRead(&touch);
-
+		
+		consoleSelect(&bottomScreen);
 		iprintf("\x1b[10;0HTouch x = %04i, %04i\n", touch.rawx, touch.px);
 		iprintf("Touch y = %04i, %04i\n", touch.rawy, touch.py);
 
-
+		static int keys;
+		keys  = keysDown();
 		if(keysHeld() & KEY_TOUCH) {
 
 			if (touchpx != touch.px || touchpy != touch.py) {
@@ -288,8 +289,43 @@ int main(void) {
 			}
 
 		}
-		if(keysHeld() & KEY_A) {
-			keyInterruptRoutine();
+		if(keys & KEY_A) {
+			sendStatus("A Pressed");
+		}
+		if(keys & KEY_B) {
+			sendStatus("B Pressed");
+		}
+		if(keys & KEY_X) {
+			sendStatus("X Pressed");
+		}
+		if(keys & KEY_Y) {
+			sendStatus("Y Pressed");
+		}
+		if(keys & KEY_UP) {
+			sendStatus("UP Pressed");
+		}
+		if(keys & KEY_DOWN) {
+			sendStatus("DOWN Pressed");
+		}
+		if(keys & KEY_LEFT) {
+			sendStatus("LEFT Pressed");
+		}
+		if(keys & KEY_RIGHT) {
+			sendStatus("RIGH Pressed");
+		}
+		if(keys & KEY_START) {
+			sendStatus("START Pressed");
+		}
+		if(keys & KEY_SELECT) {
+			sendStatus("SELECT Pressed");
+		}
+		if(keys & KEY_R) {
+			sendStatus("RIGHT SHOULDER Pressed");		}
+		if(keys & KEY_L) {
+			sendStatus("LEFTG SHOULDER Pressed");
+		}
+		if(keys & KEY_LID) {
+			sendStatus("LID closed");
 		}
 		swiWaitForVBlank();
 	}
