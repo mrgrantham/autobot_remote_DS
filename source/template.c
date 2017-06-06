@@ -14,6 +14,11 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#define RECVBUFLEN 128
+
+// make sure the recvfrom() function is not blocking the loop
+#define SGIP_SOCKET_DEFAULT_NONBLOCK
+
 
 // creates structure to hold x and y positions from touch screen
 touchPosition touch;
@@ -91,13 +96,15 @@ Wifi_AccessPoint* findAP(void){
 	return &ap;
 }
 
+Wifi_AccessPoint* ap;
+int status = ASSOCSTATUS_DISCONNECTED;
+
 void Wifi_init_and_connect(void) {
-	int status = ASSOCSTATUS_DISCONNECTED;
 
 	//consoleClear();
 	//consoleSetWindow(NULL, 0,0,32,24);
 
-	Wifi_AccessPoint* ap = findAP();
+	ap = findAP();
 
 	//consoleClear();
 	//consoleSetWindow(NULL, 0,0,32,10);
@@ -125,6 +132,7 @@ void Wifi_init_and_connect(void) {
 		Wifi_ConnectAP(ap, WEPMODE_NONE, 0, 0);
 	}
 	consoleClear();
+	status = ASSOCSTATUS_DISCONNECTED;
 	while(status != ASSOCSTATUS_ASSOCIATED && status != ASSOCSTATUS_CANNOTCONNECT) {
 
 		status = Wifi_AssocStatus();
@@ -272,7 +280,26 @@ void sendStatus(const char *message) {
 	/* send a message to the server */
 	if (sendto(fd, packet, strlen(packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 		consoleSelect(&topScreen);
-		iprintf("sendto failed\n");
+		iprintf("sendto failed. attempting to reconnect\n");
+		// this assumes an unprotected wifi network
+		Wifi_ConnectAP(ap, WEPMODE_NONE, 0, 0);
+
+		// checking status while reconnecting
+		status = Wifi_AssocStatus();
+		while(status != ASSOCSTATUS_ASSOCIATED && status != ASSOCSTATUS_CANNOTCONNECT) {
+			consoleClear();
+			status = Wifi_AssocStatus();
+			int len = strlen(ASSOCSTATUS_STRINGS[status]);
+			iprintf("\x1b[0;0H\x1b[K");
+			iprintf("\x1b[0;%dH%s", (32-len)/2,ASSOCSTATUS_STRINGS[status]);
+
+			scanKeys();
+
+			if(keysDown() & KEY_B) break;
+
+			swiWaitForVBlank();
+		}
+
 		consoleSelect(&bottomScreen);
 	}
 }
@@ -300,6 +327,17 @@ int main(void) {
 		return 1;
 	} else {
 		iprintf("\nUDP socket established\n");
+	}
+
+	// Socket is currently in blocking mode
+	// Have to use ioctl rather than fcntl for dswifi
+	// Shift socket to non-blocking mode
+	int arg = 1;
+	int ercode = 0;
+	ercode = ioctl(fd, FIONBIO, &arg);
+	if (ercode < 0) {
+		iprintf("\x1b[8;0HSocket flag set failed: %d %d %d\n", ercode, arg, FIONBIO);
+		//freeze();
 	}
 
 
@@ -332,6 +370,7 @@ int main(void) {
 		touchRead(&touch);
 		
 		consoleSelect(&bottomScreen);
+		consoleClear();
 		iprintf("\x1b[10;0HTouch x = %04i, %04i\n", touch.rawx, touch.px);
 		iprintf("Touch y = %04i, %04i\n", touch.rawy, touch.py);
 
@@ -347,15 +386,7 @@ int main(void) {
 				matrix_y = (touchpy+1)*7/192;
 				snprintf(packet,sizeof(packet),"X%.1dY%.1d",matrix_x,matrix_y);
 
-				consoleSelect(&topScreen);
-				iprintf("SENDING: %s\n",packet);
-				consoleSelect(&bottomScreen);
-				if (sendto(fd, packet, strlen(packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-					consoleSelect(&topScreen);
-					iprintf("sendto failed\n");
-					consoleSelect(&bottomScreen);
-					return 0;
-				}
+				sendStatus(packet);
 			}
 
 		}
@@ -384,19 +415,69 @@ int main(void) {
 			sendStatus("RIGHT Pressed");
 		}
 		if(keys & KEY_START) {
+			// this assumes an unprotected wifi network
+			consoleSelect(&topScreen);
+			iprintf("attempting to reconnect to AP\n");
+			consoleSelect(&bottomScreen);
+			Wifi_ConnectAP(ap, WEPMODE_NONE, 0, 0);
+
+			// checking status while reconnecting
+			status = Wifi_AssocStatus();
+			while(status != ASSOCSTATUS_ASSOCIATED && status != ASSOCSTATUS_CANNOTCONNECT) {
+				consoleClear();
+				status = Wifi_AssocStatus();
+				int len = strlen(ASSOCSTATUS_STRINGS[status]);
+				iprintf("\x1b[0;0H\x1b[K");
+				iprintf("\x1b[0;%dH%s", (32-len)/2,ASSOCSTATUS_STRINGS[status]);
+
+				scanKeys();
+
+				if(keysDown() & KEY_B) break;
+
+				swiWaitForVBlank();
+			}
 			sendStatus("START Pressed");
 		}
 		if(keys & KEY_SELECT) {
+			consoleSelect(&topScreen);
+			iprintf("selecting a new AP\n");
+			consoleSelect(&bottomScreen);
+			Wifi_init_and_connect();
 			sendStatus("SELECT Pressed");
 		}
 		if(keys & KEY_R) {
-			sendStatus("RIGHT SHOULDER Pressed");		}
+			sendStatus("RIGHT SHOULDER Pressed");		
+		}
 		if(keys & KEY_L) {
 			sendStatus("LEFT SHOULDER Pressed");
 		}
 		if(keys & KEY_LID) {
 			sendStatus("LID closed");
 		}
+
+		static char recvBuf[RECVBUFLEN];
+		static char recvmessage[RECVBUFLEN];
+		memset(recvBuf,0,RECVBUFLEN);
+		static int numbytes;
+		static int tempnumbytes;
+
+		static int servaddrlen;
+		servaddrlen = sizeof(servaddr);
+
+		if (tempnumbytes = recvfrom(fd, recvBuf, RECVBUFLEN-1, 0, (struct sockaddr *)&servaddr,&servaddrlen)  == -1) {
+			// consoleSelect(&topScreen);
+			// iprintf("recv failed\n");
+			// consoleSelect(&bottomScreen);
+		} else {
+			memset(recvmessage,0,RECVBUFLEN);
+			memcpy(recvmessage,recvBuf,RECVBUFLEN);
+			numbytes = tempnumbytes;
+		}
+
+		consoleSelect(&bottomScreen);
+		iprintf("\n\nBytes Received %i\n",numbytes);
+		iprintf("\nMessage Received:\n%s\n",recvmessage);
+
 		swiWaitForVBlank();
 	}
 
