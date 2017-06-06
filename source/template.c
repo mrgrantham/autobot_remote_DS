@@ -151,6 +151,77 @@ void Wifi_init_and_connect(void) {
 	}
 }
 
+static char senderIP[17];
+static char senderPort[8];
+int16_t portnum = 55056;
+
+// this casllback runs with every keypress to make sure the text you type is visible
+void OnKeyPressed(int key) {
+   if(key > 0)
+      iprintf("%c", key);
+}
+
+void SelectIPandPort(){
+	//consoleDemoInit(); 
+	Keyboard *kbd = 	keyboardDemoInit();
+	kbd->OnKeyPressed = OnKeyPressed;
+	consoleSelect(&topScreen);
+	char * defaultIP = "192.168.0.101";
+	iprintf("Would you like to used the \ndefault IP of %s?\nPress A for using the default\nand B to set your own\n",defaultIP);
+
+	int IP = 0;
+	int Port = 0;
+	int keys = 0;
+
+	while(!IP) {
+		scanKeys();
+		keys = keysDown();
+		if(keys & KEY_A) {
+			// default IP setting
+			snprintf(senderIP,sizeof(senderIP),defaultIP);
+			IP = 1;
+		} else if (keys & KEY_B) {
+			scanf("%s",senderIP);
+			iprintf("Is %s correct?\nPress A to confirm or B to enter again\n",senderIP);
+			scanKeys();
+			while (!(keys & KEY_B || keys & KEY_A)){
+				scanKeys();
+				keys = keysDown();
+			}
+			if (keys & KEY_A) {
+				iprintf("Confirmed\n");
+				IP = 1;
+			}
+		}
+	}
+
+	iprintf("\nWould you like to used the\ndefault Port of %i?\nPress A for using the default\nand B to set your own\n",portnum);
+
+	while(!Port) {
+		scanKeys();
+		keys = keysDown();
+		if(keys & KEY_A) {
+			// default Port setting remains
+			Port = 1;
+		} else if (keys & KEY_B) {
+			scanf("%i",portnum);
+			iprintf("Is %s correct?\nPress A to confirm or B to enter again\n",senderIP);
+			scanKeys();
+			while (!(keys & KEY_B || keys & KEY_A)){
+				scanKeys();
+				keys = keysDown();
+			}
+			if (keys & KEY_A) {
+				iprintf("Confirmed\n");
+				Port = 1;
+			}
+		}
+	}	
+
+
+
+}
+
 void setup(void) {
 
 
@@ -169,13 +240,12 @@ void setup(void) {
 	consoleInit(&bottomScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
 
 
+
+	Wifi_init_and_connect();
 	consoleSelect(&topScreen);
 	iprintf("\n\n\tNintendo DS Command Center Wifi Test\n");
-	iprintf("\tTest by James Grantham\n");
-	iprintf("\twww.mrgrantham.com");
-	Wifi_init_and_connect();
-
-
+	
+	SelectIPandPort();
 
 
 
@@ -183,7 +253,6 @@ void setup(void) {
 }
 
 int fd; // UDP socket value
-int16_t portnum = 55056;
 struct sockaddr_in myaddr;
 struct sockaddr_in servaddr;    /* server address */
 
@@ -249,7 +318,7 @@ int main(void) {
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(portnum);
 	// servaddr.sin_addr.s_addr = htonl(0xC0A800FA);
-	inet_aton("192.168.0.101",&servaddr.sin_addr);
+	inet_aton(senderIP,&servaddr.sin_addr);
 
 
 	consoleSelect(&bottomScreen);
@@ -311,7 +380,7 @@ int main(void) {
 			sendStatus("LEFT Pressed");
 		}
 		if(keys & KEY_RIGHT) {
-			sendStatus("RIGH Pressed");
+			sendStatus("RIGHT Pressed");
 		}
 		if(keys & KEY_START) {
 			sendStatus("START Pressed");
@@ -322,7 +391,7 @@ int main(void) {
 		if(keys & KEY_R) {
 			sendStatus("RIGHT SHOULDER Pressed");		}
 		if(keys & KEY_L) {
-			sendStatus("LEFTG SHOULDER Pressed");
+			sendStatus("LEFT SHOULDER Pressed");
 		}
 		if(keys & KEY_LID) {
 			sendStatus("LID closed");
