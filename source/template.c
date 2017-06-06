@@ -144,7 +144,7 @@ void Wifi_init_and_connect(void) {
 	if(status == ASSOCSTATUS_ASSOCIATED) {
 		u32 ip = Wifi_GetIP();
 		iprintf("\nCONNECTED!!!\n");
-		iprintf("\nip: [%i.%i.%i.%i]\n", (ip ) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
+		iprintf("\nip: [%lui.%lui.%lui.%lui]\n", (ip ) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
 
 	} else {
 		iprintf("\nConnection failed!\n");
@@ -152,8 +152,7 @@ void Wifi_init_and_connect(void) {
 }
 
 static char senderIP[17];
-static char senderPort[8];
-int16_t portnum = 55056;
+int portnum = 55056;
 
 // this casllback runs with every keypress to make sure the text you type is visible
 void OnKeyPressed(int key) {
@@ -167,7 +166,7 @@ void SelectIPandPort(){
 	kbd->OnKeyPressed = OnKeyPressed;
 	consoleSelect(&topScreen);
 	char * defaultIP = "192.168.0.101";
-	iprintf("Would you like to used the \ndefault IP of %s?\nPress A for using the default\nand B to set your own\n",defaultIP);
+	iprintf("Would you like to used the \ndefault IP of %s?\n\nPress A for using the default\nor B to set your own\n\n",defaultIP);
 
 	int IP = 0;
 	int Port = 0;
@@ -195,7 +194,7 @@ void SelectIPandPort(){
 		}
 	}
 
-	iprintf("\nWould you like to used the\ndefault Port of %i?\nPress A for using the default\nand B to set your own\n",portnum);
+	iprintf("\nWould you like to used the\ndefault Port of %i?\n\nPress A for using the default\nor B to set your own\n\n",portnum);
 
 	while(!Port) {
 		scanKeys();
@@ -204,8 +203,8 @@ void SelectIPandPort(){
 			// default Port setting remains
 			Port = 1;
 		} else if (keys & KEY_B) {
-			scanf("%i",portnum);
-			iprintf("Is %s correct?\nPress A to confirm or B to enter again\n",senderIP);
+			scanf("%i",&portnum);
+			iprintf("Is %i correct?\nPress A to confirm or B to enter again\n",portnum);
 			scanKeys();
 			while (!(keys & KEY_B || keys & KEY_A)){
 				scanKeys();
@@ -243,9 +242,11 @@ void setup(void) {
 
 	Wifi_init_and_connect();
 	consoleSelect(&topScreen);
-	iprintf("\n\n\tNintendo DS Command Center Wifi Test\n");
+	iprintf("\n\n\tNintendo DS Command Center \n\tRemote Control Test\n\n");
 	
 	SelectIPandPort();
+	// Keyboard in IP selection messes up lower screen
+	consoleInit(&bottomScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
 
 
 
@@ -296,7 +297,7 @@ int main(void) {
 	// setup UDP
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("\ncannot create socket\n");
-		return;
+		return 1;
 	} else {
 		iprintf("\nUDP socket established\n");
 	}
@@ -309,7 +310,7 @@ int main(void) {
 
 	if (bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
 		iprintf("\nbind failed\n");
-		return;
+		return 1;
 	}
 
 
@@ -344,7 +345,7 @@ int main(void) {
 
 				matrix_x = (touchpx+1)*7/256;
 				matrix_y = (touchpy+1)*7/192;
-				snprintf(packet,sizeof(packet),"X%0.1dY%0.1d",matrix_x,matrix_y);
+				snprintf(packet,sizeof(packet),"X%.1dY%.1d",matrix_x,matrix_y);
 
 				consoleSelect(&topScreen);
 				iprintf("SENDING: %s\n",packet);
