@@ -160,7 +160,7 @@ void Wifi_init_and_connect(void) {
 }
 
 static char senderIP[17];
-int portnum = 55056;
+int portnum = 11156;
 
 // this casllback runs with every keypress to make sure the text you type is visible
 void OnKeyPressed(int key) {
@@ -268,17 +268,21 @@ struct sockaddr_in servaddr;    /* server address */
 int16_t touchpx = 0;
 int16_t touchpy = 0;
 
-int16_t matrix_x = 0;
+int16_t angle = 0;
+int16_t velocity = 0;
+int16_t camera = 0;
+
+
 int16_t matrix_y = 0;
 
 static char packet[32];
 
 void sendStatus(const char *message) {
-	snprintf(packet,sizeof(packet),message);
+	// snprintf(packet,sizeof(packet),message);
 	consoleSelect(&topScreen);
-	iprintf("%s\n",packet);
+	iprintf("%s\n",message);
 	/* send a message to the server */
-	if (sendto(fd, packet, strlen(packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(fd, message, strlen(message)+1, 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 		consoleSelect(&topScreen);
 		iprintf("sendto failed. attempting to reconnect\n");
 		// this assumes an unprotected wifi network
@@ -301,6 +305,14 @@ void sendStatus(const char *message) {
 		}
 
 		consoleSelect(&bottomScreen);
+	}
+}
+
+void toggleCamera() {
+	if (camera) {
+		camera = 0;
+	} else {
+		camera = 1;
 	}
 }
 
@@ -371,48 +383,111 @@ int main(void) {
 		
 		consoleSelect(&bottomScreen);
 		consoleClear();
-		iprintf("\x1b[10;0HTouch x = %04i, %04i\n", touch.rawx, touch.px);
-		iprintf("Touch y = %04i, %04i\n", touch.rawy, touch.py);
+		// iprintf("\x1b[10;0HTouch x = %04i, %04i\n", touch.rawx, touch.px);
+		// iprintf("Touch y = %04i, %04i\n", touch.rawy, touch.py);
 
 		static int keys;
+		static int k_held;
+
 		keys  = keysDown();
-		if(keysHeld() & KEY_TOUCH) {
+		k_held = keysHeld();
+		if(k_held & KEY_TOUCH) {
 
 			if (touchpx != touch.px || touchpy != touch.py) {
 				touchpx = touch.px;
 				touchpy = touch.py;
 
-				matrix_x = (touchpx+1)*7/256;
-				matrix_y = (touchpy+1)*7/192;
-				snprintf(packet,sizeof(packet),"X%.1dY%.1d",matrix_x,matrix_y);
+				angle = ((touchpx+1)*200/256) - 100;
+				// matrix_y = (touchpy+1)*7/192;
+				// snprintf(packet,sizeof(packet),"X%.1dY%.1d",matrix_x,matrix_y);
 
-				sendStatus(packet);
+				// sendStatus(packet);
 			}
 
 		}
+
+		if(keys & KEY_UP) {
+			// sendStatus("UP Pressed");
+			if (velocity < 100) {
+				velocity++;
+			}	
+		}
+		else if(k_held & KEY_UP) {
+			// sendStatus("UP Pressed");
+			if (velocity < 100) {
+				velocity++;
+			}	
+		}
+
+		if(keys & KEY_DOWN) {
+			if (velocity > -100) {
+				velocity--;
+			}	
+			// sendStatus("DOWN Pressed");
+		}
+
+		else if(k_held & KEY_DOWN) {
+			if (velocity > -100) {
+				velocity--;
+			}	
+			// sendStatus("DOWN Pressed");
+		}
+
+
+		if(keys & KEY_LEFT) {
+			if (angle > -100) {
+				angle--;
+			}			
+			// sendStatus("LEFT Pressed");
+		}
+
+		else if(k_held & KEY_LEFT) {
+			if (angle > -100) {
+				angle--;
+			}			
+			// sendStatus("LEFT Pressed");
+		}
+
+		if(keys & KEY_RIGHT) {
+			if (angle < 100) {
+				angle++;
+			}
+			// sendStatus("RIGHT Pressed");
+		}
+		else if(k_held & KEY_RIGHT) {
+			if (angle < 100) {
+				angle++;
+			}
+			// sendStatus("RIGHT Pressed");
+		}
+		
+
 		if(keys & KEY_A) {
-			sendStatus("A Pressed");
+			angle = 0;
+			// sendStatus("A Pressed");
 		}
 		if(keys & KEY_B) {
-			sendStatus("B Pressed");
+			// sendStatus("B Pressed");
+			velocity = 0;
 		}
 		if(keys & KEY_X) {
-			sendStatus("X Pressed");
+			// sendStatus("X Pressed");
 		}
 		if(keys & KEY_Y) {
-			sendStatus("Y Pressed");
+			// sendStatus("Y Pressed");
 		}
-		if(keys & KEY_UP) {
-			sendStatus("UP Pressed");
-		}
-		if(keys & KEY_DOWN) {
-			sendStatus("DOWN Pressed");
-		}
+
 		if(keys & KEY_LEFT) {
-			sendStatus("LEFT Pressed");
+			if (angle > -100) {
+				angle--;
+			}			
+			// sendStatus("LEFT Pressed");
 		}
 		if(keys & KEY_RIGHT) {
-			sendStatus("RIGHT Pressed");
+			if (angle < 100) {
+				angle++;
+			}
+			// sendStatus("RIGHT Pressed");
 		}
 		if(keys & KEY_START) {
 			// this assumes an unprotected wifi network
@@ -436,24 +511,36 @@ int main(void) {
 
 				swiWaitForVBlank();
 			}
-			sendStatus("START Pressed");
+			// sendStatus("START Pressed");
 		}
 		if(keys & KEY_SELECT) {
 			consoleSelect(&topScreen);
 			iprintf("selecting a new AP\n");
 			consoleSelect(&bottomScreen);
 			Wifi_init_and_connect();
-			sendStatus("SELECT Pressed");
+			// sendStatus("SELECT Pressed");
 		}
 		if(keys & KEY_R) {
-			sendStatus("RIGHT SHOULDER Pressed");		
+			angle = 0;
+			// sendStatus("RIGHT SHOULDER Pressed");		
 		}
 		if(keys & KEY_L) {
-			sendStatus("LEFT SHOULDER Pressed");
+			velocity = 0;
+			// sendStatus("LEFT SHOULDER Pressed");
 		}
 		if(keys & KEY_LID) {
-			sendStatus("LID closed");
+			// stop car
+			velocity = 0;
+			angle = 0;
+			// sendStatus("LID closed");
 		}
+
+		if (keys || k_held) {
+			memset(packet,0,sizeof(packet));
+			snprintf(packet,sizeof(packet),"V%d;A%d",velocity,angle);
+			sendStatus(packet);
+		}
+
 
 		static char recvBuf[RECVBUFLEN];
 		static char recvmessage[RECVBUFLEN];
@@ -475,8 +562,11 @@ int main(void) {
 		}
 
 		consoleSelect(&bottomScreen);
-		iprintf("\n\nBytes Received %i\n",numbytes);
+		iprintf("\x1b[6;0HBytes Received %i\n",numbytes);
 		iprintf("\nMessage Received:\n%s\n",recvmessage);
+		iprintf("\nVelocity: %4d\n",velocity);
+		iprintf("Angle: %4d\n",angle);
+
 
 		swiWaitForVBlank();
 	}
