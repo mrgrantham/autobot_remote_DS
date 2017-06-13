@@ -169,11 +169,11 @@ void OnKeyPressed(int key) {
 }
 
 void SelectIPandPort(){
-	//consoleDemoInit(); 
+	//consoleDemoInit();
 	Keyboard *kbd = 	keyboardDemoInit();
 	kbd->OnKeyPressed = OnKeyPressed;
 	consoleSelect(&topScreen);
-	char * defaultIP = "192.168.0.101";
+	char * defaultIP = "192.168.0.100";
 	iprintf("Would you like to used the \ndefault IP of %s?\n\nPress A for using the default\nor B to set your own\n\n",defaultIP);
 
 	int IP = 0;
@@ -223,7 +223,7 @@ void SelectIPandPort(){
 				Port = 1;
 			}
 		}
-	}	
+	}
 
 
 
@@ -251,7 +251,7 @@ void setup(void) {
 	Wifi_init_and_connect();
 	consoleSelect(&topScreen);
 	iprintf("\n\n\tNintendo DS Command Center \n\tRemote Control Test\n\n");
-	
+
 	SelectIPandPort();
 	// Keyboard in IP selection messes up lower screen
 	consoleInit(&bottomScreen, 3,BgType_Text4bpp, BgSize_T_256x256, 31, 0, false, true);
@@ -282,7 +282,7 @@ void sendStatus(const char *message) {
 	consoleSelect(&topScreen);
 	iprintf("%s\n",message);
 	/* send a message to the server */
-	if (sendto(fd, message, strlen(message)+1, 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(fd, message, strlen(message), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 		consoleSelect(&topScreen);
 		iprintf("sendto failed. attempting to reconnect\n");
 		// this assumes an unprotected wifi network
@@ -380,7 +380,7 @@ int main(void) {
 	while(1) {
 		scanKeys();
 		touchRead(&touch);
-		
+
 		consoleSelect(&bottomScreen);
 		consoleClear();
 		// iprintf("\x1b[10;0HTouch x = %04i, %04i\n", touch.rawx, touch.px);
@@ -410,26 +410,26 @@ int main(void) {
 			// sendStatus("UP Pressed");
 			if (velocity < 100) {
 				velocity++;
-			}	
+			}
 		}
 		else if(k_held & KEY_UP) {
 			// sendStatus("UP Pressed");
 			if (velocity < 100) {
 				velocity++;
-			}	
+			}
 		}
 
 		if(keys & KEY_DOWN) {
 			if (velocity > -100) {
 				velocity--;
-			}	
+			}
 			// sendStatus("DOWN Pressed");
 		}
 
 		else if(k_held & KEY_DOWN) {
 			if (velocity > -100) {
 				velocity--;
-			}	
+			}
 			// sendStatus("DOWN Pressed");
 		}
 
@@ -437,14 +437,14 @@ int main(void) {
 		if(keys & KEY_LEFT) {
 			if (angle > -100) {
 				angle--;
-			}			
+			}
 			// sendStatus("LEFT Pressed");
 		}
 
 		else if(k_held & KEY_LEFT) {
 			if (angle > -100) {
 				angle--;
-			}			
+			}
 			// sendStatus("LEFT Pressed");
 		}
 
@@ -460,7 +460,7 @@ int main(void) {
 			}
 			// sendStatus("RIGHT Pressed");
 		}
-		
+
 
 		if(keys & KEY_A) {
 			angle = 0;
@@ -480,7 +480,7 @@ int main(void) {
 		if(keys & KEY_LEFT) {
 			if (angle > -100) {
 				angle--;
-			}			
+			}
 			// sendStatus("LEFT Pressed");
 		}
 		if(keys & KEY_RIGHT) {
@@ -522,7 +522,7 @@ int main(void) {
 		}
 		if(keys & KEY_R) {
 			angle = 0;
-			// sendStatus("RIGHT SHOULDER Pressed");		
+			// sendStatus("RIGHT SHOULDER Pressed");
 		}
 		if(keys & KEY_L) {
 			velocity = 0;
