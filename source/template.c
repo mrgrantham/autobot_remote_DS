@@ -316,6 +316,19 @@ void toggleCamera() {
 	}
 }
 
+typedef struct button_bound {
+	int16 upperLeftX;
+	int16 upperLeftY;
+	int16 lowerRightX;
+	int16 lowerRightY;
+} button_bound;
+
+bool in_bounds(button_bound bound){
+	if (touch.px > bound.upperLeftX && touch.py > bound.upperLeftY && touch.px < bound.lowerRightX && touch.py < bound.lowerRightY)
+		return true;
+	else
+		return false;
+}
 
 
 //---------------------------------------------------------------------------------
@@ -374,6 +387,19 @@ int main(void) {
 
 	consoleSelect(&bottomScreen);
 
+	int8 camera = 0;
+	int8 autonomous = 0;
+
+	button_bound camera_button = { 	.upperLeftX = 0, 
+									.upperLeftY = 165, 
+									.lowerRightX = 127, 
+									.lowerRightY = 192};
+
+
+	button_bound auto_button = { 	.upperLeftX = 128, 
+									.upperLeftY = 165, 
+									.lowerRightX = 256, 
+									.lowerRightY = 192};
 
 // Run Loop
 
@@ -397,13 +423,33 @@ int main(void) {
 				touchpx = touch.px;
 				touchpy = touch.py;
 
-				angle = ((touchpx+1)*200/256) - 100;
+				if (touchpy < 165) {
+					angle = ((touchpx+1)*200/256) - 100;
+				}
 				// matrix_y = (touchpy+1)*7/192;
 				// snprintf(packet,sizeof(packet),"X%.1dY%.1d",matrix_x,matrix_y);
 
 				// sendStatus(packet);
 			}
 
+		}
+
+		if(keys & KEY_TOUCH) {
+			// Camera Mode
+			if (in_bounds(camera_button)) {
+				if (camera) {
+					camera = 0;				
+				} else {
+					camera = 1;
+				}
+			}
+			if (in_bounds(auto_button)) {
+				if (autonomous) {
+					autonomous = 0;
+				} else {
+					autonomous = 1;
+				}
+			}
 		}
 
 		if(keys & KEY_UP) {
@@ -537,7 +583,7 @@ int main(void) {
 
 		if (keys || k_held) {
 			memset(packet,0,sizeof(packet));
-			snprintf(packet,sizeof(packet),"V%d;A%d",velocity,angle);
+			snprintf(packet,sizeof(packet),"V%d;A%d;C%d;D%d",velocity,angle,camera,autonomous);
 			sendStatus(packet);
 		}
 
@@ -562,11 +608,11 @@ int main(void) {
 		}
 
 		consoleSelect(&bottomScreen);
-		iprintf("\x1b[6;0HBytes Received %i\n",numbytes);
-		iprintf("\nMessage Received:\n%s\n",recvmessage);
-		iprintf("\nVelocity: %4d\n",velocity);
-		iprintf("Angle: %4d\n",angle);
-
+		// iprintf("\x1b[6;0HBytes Received %i\n",numbytes);
+		// iprintf("\nMessage Received:\n%s\n",recvmessage);
+		iprintf("\n Velocity: %4d\n",velocity);
+		iprintf("\n Angle: %4d\n",angle);
+		iprintf("\x1b[22;0H [%c] Camera     [%c] Autonomous",camera ? 'X' : ' ', autonomous ? 'X' : ' ' );
 
 		swiWaitForVBlank();
 	}
